@@ -1,29 +1,33 @@
-import pandas as pd
+import numpy as np
 import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
 def null_kontrol_doldur(veri_seti):
-    null_degerler = veri_seti.isnull().sum()
-    for sutun in veri_seti.columns:
-        if null_degerler[sutun] > 0:
-            sutun_ort = veri_seti[sutun].mean()
-            veri_seti[sutun].fillna(sutun_ort, inplace=True)
+    for sutun in range(veri_seti.shape[1]):
+        if np.isnan(veri_seti[:, sutun]).any():
+            sutun_ort = np.nanmean(veri_seti[:, sutun])
+            veri_seti[np.isnan(veri_seti[:, sutun]), sutun] = sutun_ort
     return veri_seti
 
 def modeli_egit_kaydet():
     # Veri setini yükle
-    veriler = pd.read_csv('smoking.csv')
+    veriler = np.genfromtxt('smoking.csv', delimiter=',', skip_header=1)
 
     veriler = null_kontrol_doldur(veriler)
 
-    veriler['gender'].replace({'F': 1, 'M': 0}, inplace=True)
-    veriler['tartar'].replace({'Y': 1, 'N': 0}, inplace=True)
-    veriler.drop(columns=["oral"], inplace=True)
+    # 'gender' sütunu: 'F' = 1, 'M' = 0
+    veriler[:, 1] = np.where(veriler[:, 1] == 'F', 1, 0)
 
-    independent_variables = veriler.iloc[:, :25]
-    dependent_variables = veriler.iloc[:, 25]
+    # 'tartar' sütunu: 'Y' = 1, 'N' = 0
+    veriler[:, -1] = np.where(veriler[:, -1] == 'Y', 1, 0)
+
+    # 'oral' sütununu çıkar
+    veriler = np.delete(veriler, -2, axis=1)
+
+    independent_variables = veriler[:, :25]
+    dependent_variables = veriler[:, 25]
 
     independent_variables_train, independent_variables_test, dependent_variables_train, dependent_variables_test = train_test_split(independent_variables, dependent_variables, test_size=0.33, random_state=0)
 
@@ -35,7 +39,7 @@ def modeli_egit_kaydet():
     print("Modelin doğruluk skoru:", accuracy)
 
     # Seçilen özelliklerin olduğu yeni veri seti
-    selected_features = veriler[['gender', 'hemoglobin', 'Gtp', 'triglyceride', 'height']]  
+    selected_features = veriler[:, [1, 7, 12, 15, 5]]
 
     X_train, X_test, y_train, y_test = train_test_split(selected_features, dependent_variables, test_size=0.33, random_state=0)
     model = RandomForestClassifier(random_state=0)
@@ -59,8 +63,8 @@ def tahmin_yap():
     triglyceride = float(input("triglyceride değerini giriniz: "))
     height = float(input("height değerini giriniz: "))
 
-    # Kullanıcının girdiği değerlerle bir veri çerçevesi oluştur
-    kullanici_verisi = pd.DataFrame({'gender': [gender], 'hemoglobin': [hemoglobin], 'Gtp': [Gtp], 'triglyceride': [triglyceride], 'height': [height]})
+    # Kullanıcının girdiği değerlerle bir veri matrisi oluştur
+    kullanici_verisi = np.array([[gender, hemoglobin, Gtp, triglyceride, height]])
 
     # Model kullanıcı verisini kullanarak tahmin yap
     tahmin = model.predict(kullanici_verisi)
@@ -73,3 +77,4 @@ def tahmin_yap():
 if __name__ == "__main__":
     modeli_egit_kaydet()  # Modeli eğit ve kaydet
     tahmin_yap()          # Kullanıcıdan değerleri al ve tahmin yap
+
