@@ -1,8 +1,11 @@
+import clr
 import numpy as np
 import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
+
+clr.AddReference("System.Windows.Forms")
 
 # Veri setindeki null değerleri kontrol eden ve gerekli olanları sütun ortalaması ile dolduran fonksiyon
 def null_kontrol_doldur(veri_seti):
@@ -75,11 +78,11 @@ def tahmin_yap():
     model = joblib.load('selected_features_heart_model.pkl')
 
     # Kullanıcıdan beş özelliği girmesini iste
-    oldpeak = float(input("oldpeak değerini giriniz: "))
-    thal = float(input("thal değerini giriniz: "))
-    cp = float(input("cp değerini giriniz: "))
-    thalach = float(input("thalach değerini giriniz: "))
-    ca = float(input("ca değerini giriniz: "))
+    oldpeak = float(raw_input("oldpeak değerini giriniz: "))
+    thal = float(raw_input("thal değerini giriniz: "))
+    cp = float(raw_input("cp değerini giriniz: "))
+    thalach = float(raw_input("thalach değerini giriniz: "))
+    ca = float(raw_input("ca değerini giriniz: "))
 
     # Kullanıcının girdiği değerlerle bir numpy array oluştur
     kullanici_verisi = np.array([[oldpeak, thal, cp, thalach, ca]])
@@ -95,13 +98,4 @@ def tahmin_yap():
 
 if __name__ == "__main__":
     modeli_egit_kaydet()  # Modeli eğit ve kaydet
-    tahmin_yap()          # Kullanıcıdan değerleri al ve tahmin yap
-
-
-
-
-
-
-
-
-
+    tah
