@@ -1,98 +1,102 @@
-
-import pandas as pd
-
-
-
-veriler=pd.read_csv('heart .csv')
-veriler = veriler.select_dtypes(include=['float64','int64'])
-
-import pandas as pd
-
-# Veri setindeki null değerleri kontrol eden ve gerekli olanları sütun ortalaması ile dolduran fonksiyon
-def null_kontrol_doldur(veri_seti):
-    # Veri setindeki null değerlerin toplam sayısını al
-    null_degerler = veri_seti.isnull().sum()
-    # Her sütunu kontrol et
-    for sutun in veri_seti.columns:
-        if null_degerler[sutun] > 0:
-            sutun_ort = veri_seti[sutun].mean()
-            veri_seti[sutun].fillna(sutun_ort, inplace=True)
-        return veri_seti
-
-# Veri setinde null değerleri kontrol et ve gerekli olanları sütun ortalaması ile doldur
-veriler = null_kontrol_doldur(veriler)
-
-#conqure datas for test and train
+import numpy as np
+import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 
-independent_variables = veriler.iloc[:, :13]
-dependent_variables = veriler.iloc[:, 13]
+# Veri setindeki null değerleri kontrol eden ve gerekli olanları sütun ortalaması ile dolduran fonksiyon
+def null_kontrol_doldur(veri_seti):
+    for i in range(veri_seti.shape[1]):
+        null_values = np.isnan(veri_seti[:, i])
+        if np.any(null_values):
+            mean_value = np.nanmean(veri_seti[:, i])
+            veri_seti[null_values, i] = mean_value
+    return veri_seti
 
-independent_variables_train,independent_variables_test,dependent_variables_train,dependent_variables_test = train_test_split(independent_variables,dependent_variables,test_size=0.33 ,random_state=(0))
+# Modeli eğit ve kaydet
+def modeli_egit_kaydet():
+    # Veri setini yükle
+    veriler = np.genfromtxt('heart.csv', delimiter=',', skip_header=1)
+    
+    # Sadece float64 ve int64 tipindeki verileri seç
+    veriler = veriler[:, [i for i in range(veriler.shape[1]) if veriler[:, i].dtype in [np.float64, np.int64]]]
 
-# Modeli seç ve eğit
-model = RandomForestClassifier(random_state=0)
-model.fit(independent_variables_train, dependent_variables_train)
+    # Null değerleri kontrol et ve doldur
+    veriler = null_kontrol_doldur(veriler)
 
-# Modeli test verisiyle değerlendir
-dependent_variables_pred = model.predict(independent_variables_test)
-accuracy = accuracy_score( dependent_variables_test, dependent_variables_pred)
-#print("Modelin doğruluk skoru:", accuracy)
+    # Bağımsız ve bağımlı değişkenleri ayır
+    independent_variables = veriler[:, :13]
+    dependent_variables = veriler[:, 13]
 
-# Özellik önemliliği değerlerini al
-feature_importances = model.feature_importances_
+    # Verileri eğitim ve test setlerine böl
+    independent_variables_train, independent_variables_test, dependent_variables_train, dependent_variables_test = train_test_split(
+        independent_variables, dependent_variables, test_size=0.33, random_state=0)
 
-# Özelliklerin indekslerini ve önemlilik değerlerini birleştir
-feature_importances_list = list(zip(independent_variables.columns, feature_importances))
+    # Modeli seç ve eğit
+    model = RandomForestClassifier(random_state=0)
+    model.fit(independent_variables_train, dependent_variables_train)
 
-# Özellikleri önemlilik değerlerine göre sırala
-sorted_features = sorted(feature_importances_list, key=lambda x: x[1], reverse=True)
+    # Modeli test verisiyle değerlendir
+    dependent_variables_pred = model.predict(independent_variables_test)
+    accuracy = accuracy_score(dependent_variables_test, dependent_variables_pred)
+    print("Modelin doğruluk skoru:", accuracy)
 
-# En önemli ilk beş özelliği yazdır
-print("En önemli ilk beş özellik:")
-for feature, importance_score in sorted_features[:5]:
-    print(f"Özellik: {feature}, Önemlilik Değeri: {importance_score:.4f}")
+    # Özellik önemliliği değerlerini al
+    feature_importances = model.feature_importances_
 
-# İlgili özelliklerin bulunduğu veri setini oluştur
-selected_features = veriler[['oldpeak', 'thal', 'cp', 'thalach', 'ca']]
+    # Özelliklerin indekslerini ve önemlilik değerlerini birleştir
+    feature_importances_list = list(zip(range(independent_variables.shape[1]), feature_importances))
 
-# Verileri eğitim ve test setlerine bölmek
-X_train, X_test, y_train, y_test = train_test_split(selected_features, dependent_variables, test_size=0.25, random_state=0)
+    # Özellikleri önemlilik değerlerine göre sırala
+    sorted_features = sorted(feature_importances_list, key=lambda x: x[1], reverse=True)
 
-# Yeni bir rastgele orman modeli oluştur
-model = RandomForestClassifier(random_state=0)
+    # En önemli ilk beş özelliği yazdır
+    print("En önemli ilk beş özellik:")
+    for feature, importance_score in sorted_features[:5]:
+        print(f"Özellik: {feature}, Önemlilik Değeri: {importance_score:.4f}")
 
-# Modeli eğit
-model.fit(X_train, y_train)
+    # En önemli beş özelliği seç
+    selected_columns = [feature for feature, _ in sorted_features[:5]]
+    selected_features = independent_variables[:, selected_columns]
 
-# Modelin tahminlerini yap
-y_pred = model.predict(X_test)
+    X_train, X_test, y_train, y_test = train_test_split(selected_features, dependent_variables, test_size=0.25, random_state=0)
+    model = RandomForestClassifier(random_state=0)
+    model.fit(X_train, y_train)
 
-# Doğruluk değerini hesapla
-accuracy = accuracy_score(y_test, y_pred)
-print("Modelin doğruluk skoru:", accuracy)
+    y_pred = model.predict(X_test)
+    accuracy = accuracy_score(y_test, y_pred)
+    print("Seçilen özelliklerle modelin doğruluk skoru:", accuracy)
 
+    # Modeli yeniden kaydet (seçilen özelliklerle)
+    joblib.dump(model, 'selected_features_heart_model.pkl')
 
-# Kullanıcıdan beş özelliği girmesini iste
-oldpeak = float(input("oldpeak değerini giriniz: "))
-thal = float(input("thal değerini giriniz: "))
-cp = float(input("cp değerini giriniz: "))
-thalach = float(input("thalach değerini giriniz: "))
-ca = float(input("ca değerini giriniz: "))
+def tahmin_yap():
+    # Kaydedilen modeli yükle
+    model = joblib.load('selected_features_heart_model.pkl')
 
-# Kullanıcının girdiği değerlerle bir veri çerçevesi oluştur
-kullanici_verisi = pd.DataFrame({'oldpeak': [oldpeak], 'thal': [thal], 'cp': [cp], 'thalach': [thalach], 'ca': [ca]})
+    # Kullanıcıdan beş özelliği girmesini iste
+    oldpeak = float(input("oldpeak değerini giriniz: "))
+    thal = float(input("thal değerini giriniz: "))
+    cp = float(input("cp değerini giriniz: "))
+    thalach = float(input("thalach değerini giriniz: "))
+    ca = float(input("ca değerini giriniz: "))
 
-# Model kullanıcı verisini kullanarak tahmin yap
-tahmin = model.predict(kullanici_verisi)
+    # Kullanıcının girdiği değerlerle bir numpy array oluştur
+    kullanici_verisi = np.array([[oldpeak, thal, cp, thalach, ca]])
 
-# Tahmini yazdır
-if tahmin[0] == 1:
-    print("Kalp krizi riski var.")
-else:
-    print("Kalp krizi riski yok.")
+    # Model kullanıcı verisini kullanarak tahmin yap
+    tahmin = model.predict(kullanici_verisi)
+
+    # Tahmini yazdır
+    if tahmin[0] == 1:
+        print("Kalp krizi riski var.")
+    else:
+        print("Kalp krizi riski yok.")
+
+if __name__ == "__main__":
+    modeli_egit_kaydet()  # Modeli eğit ve kaydet
+    tahmin_yap()          # Kullanıcıdan değerleri al ve tahmin yap
+
 
 
 
